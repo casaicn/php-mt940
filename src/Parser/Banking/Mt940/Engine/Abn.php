@@ -61,16 +61,52 @@ class Abn extends Engine
         }
 
         $results = [];
-        if (preg_match('/:86:(GIRO|BGC\.)\s+[\d]+ (.+)/', $this->getCurrentTransactionData(), $results)
+        $data = $this->getCurrentTransactionData();
+
+        // SEPA MT940 Structured
+        if (preg_match('#/NAME/(.+?)\n?/(REMI|IBAN|BIC|ADDR|ISDT|CSID|MARF)/#ms', $data, $results)) {
+            $accountName = trim($results[1]);
+            if (!empty($accountName)) {
+                return $this->sanitizeAccountName($accountName);
+            }
+        }
+
+        if (preg_match('/:86:(GIRO|BGC\.)\s+[\d]+ (.+)/', $data, $results)
             && !empty($results[2])
         ) {
             return $this->sanitizeAccountName($results[2]);
         }
 
-        if (preg_match('/:86:.+\n(.*)\n/', $this->getCurrentTransactionData(), $results)
+        if (preg_match('/:86:.+\n(.*)\n/', $data, $results)
             && !empty($results[1])
         ) {
             return $this->sanitizeAccountName($results[1]);
+        }
+
+        return '';
+    }
+
+    /**
+     * Overloaded: ABN Amro shows description and fixes newlines etc.
+     *
+     * @inheritdoc
+     */
+    protected function parseTransactionDescription()
+    {
+        $results = [];
+        $data = $this->getCurrentTransactionData();
+
+        if (preg_match('#/REMI/(.+?)\n?/(EREF|IBAN|BIC|ADDR|ISDT|CSID|MARF)/#ms', $data, $results)) {
+            $description = trim($results[1]);
+            if (!empty($description)) {
+                return $this->sanitizeDescription($description);
+            }
+        }
+
+        if (preg_match('/:86:.+\n(.*)\n/', $data, $results)
+            && !empty($results[1])
+        ) {
+            return $this->sanitizeDescription($results[1]);
         }
 
         return '';
