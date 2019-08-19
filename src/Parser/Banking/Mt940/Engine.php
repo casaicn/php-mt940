@@ -149,6 +149,7 @@ abstract class Engine
                 }
                 $transaction->setAccount($this->parseTransactionAccount());
                 $transaction->setAccountName($this->parseTransactionAccountName());
+                $transaction->setAccountBic($this->parseTransactionAccountBic());
                 $transaction->setPrice($this->parseTransactionPrice());
                 $transaction->setDebitCredit($this->parseTransactionDebitCredit());
                 $transaction->setCancellation($this->parseTransactionCancellation());
@@ -417,6 +418,25 @@ abstract class Engine
     }
 
     /**
+     * uses the 86 field to determine accountbic of the transaction.
+     * ie: 86:/TRTP/SEPA OVERBOEKING/IBAN/..iban../BIC/RABONL2U/NAME/..ibannaam../REMI/..omschrijving../EREF/NOTPROVIDED
+     * @return string
+     */
+    protected function parseTransactionAccountBic()
+    {
+        $results = [];
+        $data = $this->getCurrentTransactionData();
+        if ((preg_match('#/BIC/(.+?)\n?/(NAME|REMI|IBAN|BIC|ADDR|ISDT|CSID|MARF)/#ms', $data, $results) 
+            || preg_match('/:86: ?[\d\.]+ (.+)/', $data, $results))
+            && !empty($results[1])
+        ) {
+            return $this->sanitizeAccountBic($results[1]);
+        }
+
+        return '';
+    }
+
+    /**
      * uses the 61 field to determine amount/value of the transaction.
      *
      * @return float
@@ -573,6 +593,16 @@ abstract class Engine
      * @return string
      */
     protected function sanitizeAccountName($string)
+    {
+        return preg_replace('/[\r\n]+/', '', trim($string));
+    }
+
+    /**
+     * @param string $string
+     *
+     * @return string
+     */
+    protected function sanitizeAccountBic($string)
     {
         return preg_replace('/[\r\n]+/', '', trim($string));
     }
